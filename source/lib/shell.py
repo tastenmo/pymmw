@@ -164,7 +164,7 @@ def show_config(cfg):  # simple print of resultant configuration
 
 # ------------------------------------------------
 
-def exec_app(name, args=None, path='./app/'):
+def exec_app(name, args=None, path='./source/app/'):
    
     param = []
 

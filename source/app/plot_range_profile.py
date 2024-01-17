@@ -31,8 +31,10 @@ except ImportError as e:
 
 def update(data, history=5):
 
-    ax.lines.clear()
-
+    #while ax.lines != []:
+    for line in ax.lines:
+        line.remove()
+    
     mpl.colors._colors_full_map.cache.clear()
 
     #for child in ax.get_children():
@@ -46,6 +48,7 @@ def update(data, history=5):
     x = None
     
     if 'range_profile' in data:
+        #print('range_profile', file=sys.stderr, flush=True)
         y = data['range_profile']
         bin = range_max / len(y)
         x = [i*bin for i in range(len(y))]
@@ -55,10 +58,17 @@ def update(data, history=5):
  
         if 'detected_points' in data:        
             a = {}
+            #for _, p in data['detected_points'].items():
+            #    xo
             for p in data['detected_points']:
                 ri, _ = (int(v) for v in p.split(','))
-                if ri not in a: a[ri] = {'x': x[ri], 'y': y[ri], 's': 2}
-                a[ri]['s'] += 1
+                #print(ri, file=sys.stderr, flush=True)
+
+                if ri < 64:
+                    if ri not in a: 
+                        a[ri] = {'x': x[ri], 'y': y[ri], 's': 2}
+                        a[ri]['s'] += 1
+
             xo = [a[k]['x'] for k in a]
             yo = [a[k]['y'] for k in a]
             so = [a[k]['s'] for k in a]

@@ -31,11 +31,11 @@ from lib.carrier import *
 def _init_(data, fw):
     global mss
     if len(data) > 0 and mss is None: 
-        for item in fw:
-            mss = __import__(item, fromlist=('',))
-            if len(mss._read_(data, open(os.devnull, "w"))) > 1:
-                return True
-            mss = None
+        #for item in fw:
+        mss = __import__(data, fromlist=('',))
+        #    if len(mss._read_(data, open(os.devnull, "w"))) > 1:
+        return True
+        #    mss = None
     return False
 
 
@@ -84,7 +84,7 @@ def _read_(prt, dat, timeout=2, handle=None):  # observe control port and call h
             if not _init_(handle, fw):
                 raise Exception('handler not supported')                
 
-        reset = None
+        reset = 'xWR68xx'
 
         while True:
             buf = mss._read_(data)
@@ -94,7 +94,7 @@ def _read_(prt, dat, timeout=2, handle=None):  # observe control port and call h
                     handler = os.path.splitext(mss.__file__.split(os.sep)[-1])[0]
                     print_log('handler:', handler, '-', 'configuration:', reset)
                     cnt += 1
-                    file = open('{}/{}-{}.{}'.format('mss', handler, reset, 'cfg'), 'r')
+                    file = open('{}/{}/{}-{}.{}'.format(script_path, 'mss', handler, reset, 'cfg'), 'r')
                     content = load_config(file)
                     cfg = json.loads(content)
                     cfg, par = mss._conf_(cfg)
@@ -187,6 +187,8 @@ if __name__ == "__main__":
 
         tstd = threading.Thread(target=_input_, args=(con,), )
         tstd.start()
+
+        tusr.join()
 
         # ---
         

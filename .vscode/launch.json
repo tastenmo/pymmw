@@ -1,0 +1,17 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "pymmw",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/source/pymmw.py",
+            "args": ["-c", "COM10", "-d", "COM9", "-f", "mss.x8_mmw"],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

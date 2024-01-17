@@ -146,7 +146,7 @@ def _proc_(cfg, par, err={1: 'miss', 2: 'exec', 3: 'plot'}):
     for cmd, app in _meta_['app'].items():
         if type(app) not in (list, tuple): app = (app,)             
         for item in app:
-            if cmd in cfg['guiMonitor'] and cfg['guiMonitor'][cmd] == 1 and item is not None:
+            if cmd in cfg['guiMonitor'] and cfg['guiMonitor'][cmd] > 0 and item is not None:
                 if item not in apps:
                     apps[item], values = exec_app(item, (cfg, par, ))
                     if values is None: values = []
@@ -257,17 +257,17 @@ def aux_buffer(input, output, head=40, indices={
     
     
     def aux_object(dat, oth, n=16):  # detected points/objects
-        #x = struct.unpack('f',dat[ 0: 4])[0]
-        #y = struct.unpack('f',dat[ 4: 8])[0]
-        #z = struct.unpack('f',dat[ 8:12])[0]
-        #p = struct.unpack('f',dat[12: n])[0]
-        x = intify(dat[ 0: 4])
-        y = intify(dat[ 4: 8])
-        z = intify(dat[ 8:12])
-        p = intify(dat[12: n])
-        if x > 32767: x -= 65536
-        if y > 32767: y -= 65536
-        if z > 32767: z -= 65536
+        x = struct.unpack('f',dat[ 0: 4])[0]
+        y = struct.unpack('f',dat[ 4: 8])[0]
+        z = struct.unpack('f',dat[ 8:12])[0]
+        p = struct.unpack('f',dat[12: n])[0]
+        #x = intify(dat[ 0: 4])
+        #y = intify(dat[ 4: 8])
+        #z = intify(dat[ 8:12])
+        #p = intify(dat[12: n])
+        #if x > 32767: x -= 65536
+        #if y > 32767: y -= 65536
+        #if z > 32767: z -= 65536
         qfrac = 0
         if 'qfrac' in oth: qfrac = oth['qfrac']  # q-notation is used
         x = q_to_dec(x, qfrac)
@@ -296,6 +296,14 @@ def aux_buffer(input, output, head=40, indices={
         ifpl = intify(dat[20: n])
         return n, ifpt, tot, ifpm, icpm, afpl, ifpl
 
+    def aux_side(dat, n=2):  # Side info
+        pointStruct = '2H'  # Two unsigned shorts: SNR and Noise
+        pointStructSize = struct.calcsize(pointStruct)
+        numPoints = int(n/pointStructSize)
+
+        snr, noise = struct.unpack(pointStruct, dat[:pointStructSize])
+
+        return n, snr, noise
     # ----------
     
     buffer, blocks, address, values, other = \
@@ -314,14 +322,18 @@ def aux_buffer(input, output, head=40, indices={
                 output[block][value[0]] = value[1]
             except:
                 output[block] = value
+        #print(block, file=sys.stderr, flush=True)
 
     # ----------
 
     # 7) point cloud side info
-    while address == 7 and  len(buffer) >= 4 and values > 0:
-        buffer = buffer[4:]  # TODO
-        values -= 1
-        if values == 0: address = 0
+    while address == 7 and  len(buffer) >= 2 and values > 0:
+
+        n, snr, noise = aux_side(buffer)
+        progress(n, indices[address], {'snr': snr, 'noise': noise})
+#        buffer = buffer[4:]  # TODO
+#        values -= 1
+#        if values == 0: address = 0
 
     # 6) statistics (raw values)
     if address == 6 and len(buffer) >= 24 and values > 0:
@@ -350,11 +362,13 @@ def aux_buffer(input, output, head=40, indices={
     # 3) 1D array of data considered “noise”
     while address == 3 and len(buffer) >= 2 and values > 0:
         n, v = aux_profile(buffer)
+        #print('noise_profile', file=sys.stderr, flush=True)
         progress(n, indices[address], q_to_db(v))
 
     # 2) 1D array of log mag range ffts – i.e. the first column of the log mag range-Doppler matrix
     while address == 2 and len(buffer) >= 2 and values > 0:
         n, v = aux_profile(buffer)
+        #print('range_profile', file=sys.stderr, flush=True)
         progress(n, indices[address], q_to_db(v))
     
     # 1) point cloud
@@ -363,6 +377,7 @@ def aux_buffer(input, output, head=40, indices={
         for i in range(numPoints):
             n, p, x, y, z = aux_object(buffer, other)
             progress(n, indices[address], ('{},{}'.format(i, i), {'v': p, 'x': x, 'y': y, 'z': z}))
+        address = 0
 
     # ----------
 
@@ -377,14 +392,18 @@ def aux_buffer(input, output, head=40, indices={
             output[indices[address]] = []
         elif address in (6, ):
             output[indices[address]] = None
+        print('block[{0}]: {1}, {2} values'.format(blocks, address, values), file=sys.stderr, flush=True)
 
     # 0a) header
     if len(buffer) >= head and blocks == -1 and address == 0 and values == 0:
         n, v, l, d, f, t, o, s, u = aux_head(buffer)
         buffer = buffer[n:]
         blocks = s
+        print('header.blocks: ', blocks, file=sys.stderr, flush=True)
+        print('header.length: ', l, file=sys.stderr, flush=True)
+              
         output['header'] = {'version': v, 'length': l, 'platform': d, 'number': f, 'time': t, 'objects': o, 'blocks': s, 'subframe': u}
-
+       
     # ----------
     
     input['buffer'] = buffer

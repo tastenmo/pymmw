@@ -35,9 +35,15 @@ def update(data):
         
     xm, ym, zm = ax.get_xlim3d(), ax.get_ylim3d(), ax.get_zlim3d()
 
+    #print('xm[0]: {:>7.3f} m, xm[1]: {:>7.3f} m'.format(xm[0], xm[1]), file=sys.stderr, flush=True)
+    #print('ym[0]: {:>7.3f} m, ym[1]: {:>7.3f} m'.format(ym[0], ym[1]), file=sys.stderr, flush=True)
+    #print('zm[0]: {:>7.3f} m, zm[1]: {:>7.3f} m'.format(zm[0], zm[1]), file=sys.stderr, flush=True)
+
     for _, p in data['detected_points'].items():
         
         x, y, z, d = p['x'], p['y'], p['z'], p['v']
+
+        #print('x: {:>7.3f} m, y: {:>7.3f} m, z: {:>7.3f} m, d: {:>7.3f} m'.format(x, y, z, d), file=sys.stderr, flush=True)
 
         if xm[0] <= x <= xm[1] and ym[0] <= y <= ym[1] and zm[0] <= z <= zm[1]:
 
@@ -110,7 +116,7 @@ if __name__ == "__main__":
 
         fig.tight_layout(pad=1)
         
-        ax.scatter(xs=[], ys=[], zs=[], marker='.', cmap='jet')
+        ax.scatter(xs=[], ys=[], zs=[], marker='.', cmap='jet', c='blue')
 
         for child in ax.get_children():
             if isinstance(child, art3d.Path3DCollection):
