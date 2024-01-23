@@ -253,7 +253,7 @@ def aux_buffer(input, output, head=40, indices={
     def aux_struct(dat, n=8):
         t = intify(dat[ 0: 4])
         l = intify(dat[ 4: n])
-        return n, t, l // 2
+        return n, t, l
     
     
     def aux_object(dat, oth, n=16):  # detected points/objects
@@ -268,11 +268,11 @@ def aux_buffer(input, output, head=40, indices={
         #if x > 32767: x -= 65536
         #if y > 32767: y -= 65536
         #if z > 32767: z -= 65536
-        qfrac = 0
-        if 'qfrac' in oth: qfrac = oth['qfrac']  # q-notation is used
-        x = q_to_dec(x, qfrac)
-        y = q_to_dec(y, qfrac)
-        z = q_to_dec(z, qfrac)
+        #qfrac = 0
+        #if 'qfrac' in oth: qfrac = oth['qfrac']  # q-notation is used
+        #x = q_to_dec(x, qfrac)
+        #y = q_to_dec(y, qfrac)
+        #z = q_to_dec(z, qfrac)
         return n, p, x, y, z
     
     
@@ -313,7 +313,7 @@ def aux_buffer(input, output, head=40, indices={
     def progress(n, block, value):
         nonlocal buffer, values, address
         buffer = buffer[n:]
-        values -= 1
+        values -= n
         if values == 0: address = 0
         try:
             output[block].append(value)
@@ -329,11 +329,10 @@ def aux_buffer(input, output, head=40, indices={
     # 7) point cloud side info
     while address == 7 and  len(buffer) >= 2 and values > 0:
 
+        i = output['header']['objects'] - values//4
+
         n, snr, noise = aux_side(buffer)
-        progress(n, indices[address], {'snr': snr, 'noise': noise})
-#        buffer = buffer[4:]  # TODO
-#        values -= 1
-#        if values == 0: address = 0
+        progress(n, indices[address], ('{},{}'.format(i, i), {'snr': snr, 'noise': noise}))
 
     # 6) statistics (raw values)
     if address == 6 and len(buffer) >= 24 and values > 0:
@@ -372,12 +371,14 @@ def aux_buffer(input, output, head=40, indices={
         progress(n, indices[address], q_to_db(v))
     
     # 1) point cloud
-    while address == 1 and len(buffer) >= 16 * output['header']['objects'] and values > 0:
-        numPoints = output['header']['objects']
-        for i in range(numPoints):
-            n, p, x, y, z = aux_object(buffer, other)
-            progress(n, indices[address], ('{},{}'.format(i, i), {'v': p, 'x': x, 'y': y, 'z': z}))
-        address = 0
+    #while address == 1 and len(buffer) >= 16 * output['header']['objects'] and values > 0:
+    while address == 1 and len(buffer) >= values and values > 0:
+        #print('point cloud: {} values, buffer_len: {}, objects: {}'.format( values, len(buffer), output['header']['objects']), file=sys.stderr, flush=True)
+        #numPoints = output['header']['objects']
+        #for i in range(numPoints):
+        i = output['header']['objects'] - values//16
+        n, p, x, y, z = aux_object(buffer, other)
+        progress(n, indices[address], ('{},{}'.format(i, i), {'v': p, 'x': x, 'y': y, 'z': z}))
 
     # ----------
 
@@ -386,21 +387,22 @@ def aux_buffer(input, output, head=40, indices={
         n, address, values = aux_struct(buffer)
         buffer = buffer[n:]        
         blocks -= 1
-        if   address in (1, 7):
+        if   address in (1, ):
+            output[indices[address]] = {}
+        if   address in (7, ):
             output[indices[address]] = {}
         elif address in (2, 3, 4, 5):
             output[indices[address]] = []
         elif address in (6, ):
             output[indices[address]] = None
-        print('block[{0}]: {1}, {2} values'.format(blocks, address, values), file=sys.stderr, flush=True)
+        print('block[{}]: {}, {} values, buffer_len: {}'.format(blocks, address, values, len(buffer)), file=sys.stderr, flush=True)
 
     # 0a) header
     if len(buffer) >= head and blocks == -1 and address == 0 and values == 0:
         n, v, l, d, f, t, o, s, u = aux_head(buffer)
         buffer = buffer[n:]
         blocks = s
-        print('header.blocks: ', blocks, file=sys.stderr, flush=True)
-        print('header.length: ', l, file=sys.stderr, flush=True)
+        print('header.blocks: {}, length {}, objects {} '.format(blocks, l, o), file=sys.stderr, flush=True)
               
         output['header'] = {'version': v, 'length': l, 'platform': d, 'number': f, 'time': t, 'objects': o, 'blocks': s, 'subframe': u}
        
