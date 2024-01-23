@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/source/pymmw.py",
-            "args": ["-c", "COM10", "-d", "COM9", "-f", "mss.x8_mmw"],
+            "args": ["-ip", "172.16.110.107", "-c", "26", "-d", "3001", "-f", "mss.x8_mmw"],
             "console": "integratedTerminal",
             "justMyCode": true
         }

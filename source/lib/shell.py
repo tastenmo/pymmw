@@ -83,7 +83,7 @@ def send_config(prt, cfg=None, cli=None):  # send commands to the device and han
     post = ('%', 'sensorStop',) + post + ('sensorStart', )
     for cmd in post:
         while cli is not None:
-            line = prt.readline()
+            line = prt.recv(1024)
             if len(cli(line.decode('latin-1'))) == 1:
                 time.sleep(0.01)
                 break
@@ -91,7 +91,7 @@ def send_config(prt, cfg=None, cli=None):  # send commands to the device and han
             print(cmd, file=sys.stderr, flush=True)
         cmd = cmd + '\n'
         cmd = bytes(cmd, 'latin-1')
-        prt.write(cmd)
+        prt.sendall(cmd)
         if cli is None:
             time.sleep(0.25)
 

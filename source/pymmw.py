@@ -15,6 +15,7 @@ import os
 import sys
 import glob
 import serial
+import socket
 import threading
 import json
 import argparse
@@ -61,7 +62,7 @@ def _read_(prt, dat, timeout=2, handle=None):  # observe control port and call h
         reset = None
         
         while handle is None:
-            data = prt.readline().decode('latin-1')
+            data = prt.recv(1024).decode('latin-1')
   
             if _init_(data, fw):  # firmware identified
                 handle = data.strip()
@@ -106,7 +107,7 @@ def _read_(prt, dat, timeout=2, handle=None):  # observe control port and call h
             else:
                 reset = buf
 
-            data = prt.readline().decode('latin-1')
+            data = prt.recv(1024).decode('latin-1')
             
     except Exception as e:
         print_log(e, sys._getframe())
@@ -117,7 +118,7 @@ def _input_(prt):  # accept keyboard input and forward to control port
     while not sys.stdin.closed:
         line = sys.stdin.readline()   
         if not line.startswith('%'):
-            prt.write(line.encode())
+            prt.sendall(line.encode())
 
 # ------------------------------------------------
 
@@ -125,16 +126,14 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
-    nrst = 'Windows' not in platform.system()
-
     try:
 
         parser = argparse.ArgumentParser(description='pymmw', epilog='', add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-        
-        parser.add_argument('-c', '--control-port', help='serial port for control communication', required=not nrst or '-n' in sys.argv or '--no-discovery' in sys.argv)
-        parser.add_argument('-d', '--data-port', help='serial port auxiliary communication', required=not nrst or '-n' in sys.argv or '--no-discovery' in sys.argv)
+
+        parser.add_argument('-ip', '--host', help='tcp port for control communication', required=True)
+        parser.add_argument('-c', '--control-port', help='tcp port for control communication', required=True)
+        parser.add_argument('-d', '--data-port', help='udp port data communication', required=True)
         parser.add_argument('-f', '--force-handler', help='force handler for data processing (disables autodetection)', required=False)
-        parser.add_argument('-n', '--no-discovery', help='no discovery for USB devices (avoids pre-access to the XDS debug probe)', action='store_true')        
                 
         args = parser.parse_args()
 
@@ -142,47 +141,20 @@ if __name__ == "__main__":
         
         dev, prts = None, (None, None)
 
-        nrst = nrst and not args.no_discovery
-  
-        if nrst:
-            try:
-                dev = usb_discover(*XDS_USB)
-                if len(dev) == 0: raise Exception('no device detected')
-         
-                dev = dev[0]
-                print_log(' - '.join([dev._details_[k] for k in dev._details_]))
- 
-                for rst in (False,):
-                    try:
-                        xds_test(dev, reset=rst)
-                        break
-                    except:
-                        pass
-                     
-                prts = serial_discover(*XDS_USB, sid=dev._details_['serial'])
-                if len(prts) != 2: raise Exception('unknown device configuration detected')
-         
-            except:
-                nrst = False
-
-        # ---
-
-        if args.control_port is None: args.control_port = prts[0]
-        if args.data_port is None: args.data_port = prts[1]        
-        
-        # ---
         
         mss = None
-        
-        con = serial.Serial(args.control_port, 115200, timeout=0.01)        
+        con = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        con.connect((args.host, int(args.control_port)))
         if con is None: raise Exception('not able to connect to control port')
 
-        print_log('control port: {} - data port: {}'.format(args.control_port, args.data_port))
+
+        print_log('server: {} control port: {} - data port: {}'.format(args.host, args.control_port, args.data_port))
 
         if args.force_handler:
             print_log('handler: {}'.format(args.force_handler))
 
-        tusr = threading.Thread(target=_read_, args=(con, args.data_port, None if not nrst else 2, args.force_handler))
+        tusr = threading.Thread(target=_read_, args=(con, args.data_port, None , args.force_handler))
         tusr.start()
 
         tstd = threading.Thread(target=_input_, args=(con,), )
@@ -192,11 +164,6 @@ if __name__ == "__main__":
 
         # ---
         
-        if nrst:
-            xds_reset(dev)
-            usb_free(dev)
-        else:
-            print('\nwaiting for reset (NRST) of the device', file=sys.stderr, flush=True)
 
     except Exception as e:         
         print_log(e, sys._getframe())
